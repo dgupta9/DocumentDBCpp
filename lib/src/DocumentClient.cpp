@@ -60,7 +60,7 @@ shared_ptr<Database> DocumentClient::DatabaseFromJson(
 	utility::string_t id = json_database.at(DOCUMENT_ID).as_string();
 	utility::string_t rid = json_database.at(RESPONSE_RESOURCE_RID).as_string();
 	unsigned long ts = json_database.at(RESPONSE_RESOURCE_TS).as_integer();
-	utility::string_t self = json_database.at(RESPONSE_RESOURCE_SELF).as_string();
+	utility::string_t self = string_t(RESOURCE_PATH_DBS) + _XPLATSTR("/") + id;
 	utility::string_t etag = json_database.at(RESPONSE_RESOURCE_ETAG).as_string();
 	utility::string_t colls = json_database.at(RESPONSE_RESOURCE_COLLS).as_string();
 	utility::string_t users = json_database.at(RESPONSE_RESOURCE_USERS).as_string();
@@ -103,7 +103,7 @@ shared_ptr<Database> DocumentClient::CreateDatabase(
 pplx::task<void> DocumentClient::DeleteDatabaseAsync(
 	const Database& database) const
 {
-	return DeleteDatabaseAsync(database.resource_id());
+	return DeleteDatabaseAsync(database.id());
 }
 
 void DocumentClient::DeleteDatabase(
@@ -118,7 +118,7 @@ pplx::task<void> DocumentClient::DeleteDatabaseAsync(
 	http_request request = CreateRequest(
 		methods::DEL,
 		RESOURCE_PATH_DBS,
-		resource_id,
+		string_t(RESOURCE_PATH_DBS) + _XPLATSTR("/") + resource_id,
 		document_db_configuration_->master_key());
 	request.set_request_uri(string_t(RESOURCE_PATH_DBS) + _XPLATSTR("/") + resource_id);
 
@@ -146,7 +146,7 @@ pplx::task<shared_ptr<Database>> DocumentClient::GetDatabaseAsync(
 	http_request request = CreateRequest(
 		methods::GET,
 		RESOURCE_PATH_DBS,
-		resource_id,
+		string_t(RESOURCE_PATH_DBS) + _XPLATSTR("/") + resource_id,
 		document_db_configuration_->master_key());
 	request.set_request_uri(string_t(RESOURCE_PATH_DBS) + _XPLATSTR("/") + resource_id);
 
@@ -156,7 +156,7 @@ pplx::task<shared_ptr<Database>> DocumentClient::GetDatabaseAsync(
 
 		if (response.status_code() == status_codes::OK)
 		{
-			assert(resource_id == json_response.at(RESPONSE_RESOURCE_RID).as_string());
+			assert(resource_id == json_response.at(DOCUMENT_ID).as_string());
 
 			return DatabaseFromJson(json_response);
 		}

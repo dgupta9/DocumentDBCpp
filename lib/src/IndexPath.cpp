@@ -53,10 +53,13 @@ shared_ptr<IndexPath> IndexPath::FromJson(
 	string_t path = json_payload.at(RESPONSE_INDEX_PATH).as_string();
 
 	vector<shared_ptr<Index>> indexes;
-	auto indexes_json = json_payload.at(RESPONSE_INDEXING_POLICY_INCLUDED_PATHS_INDEXES).as_array();
-	for (auto jsonIndexes : indexes_json)
+	if (json_payload.has_field(RESPONSE_INDEXING_POLICY_INCLUDED_PATHS_INDEXES))
 	{
-		indexes.push_back(Index::FromJson(jsonIndexes));
+		auto indexes_json = json_payload.at(RESPONSE_INDEXING_POLICY_INCLUDED_PATHS_INDEXES).as_array();
+		for (auto jsonIndexes : indexes_json)
+		{
+			indexes.push_back(Index::FromJson(jsonIndexes));
+		}
 	}
 
 	return make_shared<IndexPath>(path, indexes);

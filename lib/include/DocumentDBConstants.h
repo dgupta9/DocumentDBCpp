@@ -34,6 +34,10 @@
 #define TRIGGER_TYPE (_XPLATSTR("triggerType"))
 #define CONTENT_TYPE (_XPLATSTR("contentType"))
 #define MEDIA (_XPLATSTR("media"))
+#define QUERY (_XPLATSTR("query"))
+#define PARTITION_KEY (_XPLATSTR("partitionKey"))
+#define PATHS  (_XPLATSTR("paths"))
+#define PARTITION_VERSION  (_XPLATSTR("version"))
 
 // Resource paths
 #define RESOURCE_PATH_DBS (_XPLATSTR("dbs"))
@@ -49,6 +53,7 @@
 // MIME types
 #define MIME_TYPE_APPLICATION_JSON (_XPLATSTR("application/json"))
 #define MIME_TYPE_APPLICATION_SQL (_XPLATSTR("application/sql"))
+#define MIME_TYPE_APPLICATION_QUERY_JSON (_XPLATSTR("application/query+json"))
 
 // Headers
 #define HEADER_MS_CONTINUATION (_XPLATSTR("x-ms-continuation"))
@@ -56,6 +61,8 @@
 #define HEADER_MS_VERSION (_XPLATSTR("x-ms-version"))
 #define HEADER_MS_DOCUMENTDB_IS_QUERY (_XPLATSTR("x-ms-documentdb-isquery"))
 #define HEADER_MS_MAX_ITEM_COUNT (_XPLATSTR("x-ms-max-item-count"))
+#define HEADER_MS_DOCUMENTDB_QUERY_ENABLECROSSPARTITION (_XPLATSTR("x-ms-documentdb-query-enablecrosspartition"))
+#define HEADER_MS_DOCUMENTDB_PARTITION_KEY (_XPLATSTR("x-ms-documentdb-partitionkey"))
 
 // Response body
 #define RESPONSE_DATABASES (_XPLATSTR("Databases"))
@@ -106,5 +113,9 @@
 // Response error keys
 #define RESPONSE_ERROR_MESSAGE (_XPLATSTR("message"))
 #define RESPONSE_ERROR_CODE (_XPLATSTR("code"))
+
+// Stored Procs
+#define STOREDPROC_BULK_INSERT_ID (_XPLATSTR("bulkInsertItemsProc"))
+#define STOREDPROC_BULK_INSERT (_XPLATSTR("function bulkInsertItemsProc(items) {\r\n    var collection = getContext().getCollection();\r\n    var collectionLink = collection.getSelfLink();\r\n    var count = 0;\r\n\r\n    if (!items) throw new Error(\"The array is undefined or null.\");\r\n	\r\n	if (typeof arr === \"string\") arr = JSON.parse(arr);\r\n\r\n    var numItems = items.length;\r\n\r\n    if (numItems == 0) {\r\n        getContext().getResponse().setBody(0);\r\n        return;\r\n    }\r\n\r\n    tryCreate(items[count], callback);\r\n\r\n    function tryCreate(item, callback) {\r\n        var options = { disableAutomaticIdGeneration: false };\r\n\r\n        var isAccepted = collection.createDocument(collectionLink, item, options, callback);\r\n\r\n        if (!isAccepted) getContext().getResponse().setBody(count);\r\n    }\r\n\r\n    function callback(err, item, options) {\r\n        if (err) throw err;\r\n        count++;\r\n        if (count >= numItems) {\r\n            getContext().getResponse().setBody(count);\r\n        } else {\r\n            tryCreate(items[count], callback);\r\n        }\r\n    }\r\n}"))
 
 #endif // !_DOCUMENTDB_DOCUMENT_DB_CONSTANTS_H_

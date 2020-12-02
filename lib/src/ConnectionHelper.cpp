@@ -89,10 +89,14 @@ http_request CreateRequest(
 	const vector<unsigned char>& master_key)
 {
 	string_t requestTime = GetCurrentRequestTime();
+	string_t requestTimeLowerCase(requestTime);
+	transform(requestTime.begin(), requestTime.end(), requestTimeLowerCase.begin(), ::tolower);
 
-	string_t text = method + _XPLATSTR("\n") + resource_type + _XPLATSTR("\n") + resource_id + _XPLATSTR("\n") + requestTime + _XPLATSTR("\n\n");
+	string_t text = method + _XPLATSTR("\n") + resource_type + _XPLATSTR("\n");
 	string_t textLowerCase(text);
 	transform(text.begin(), text.end(), textLowerCase.begin(), ::tolower);
+
+	textLowerCase = textLowerCase + resource_id + _XPLATSTR("\n") + requestTimeLowerCase + _XPLATSTR("\n\n");;
 
 	unsigned char buffer[1000];
 #ifdef _UTF16_STRINGS
@@ -116,9 +120,9 @@ http_request CreateRequest(
 	//request.headers ().add (web::http::header_names::cache_control, _XPLATSTR("no-cache"));
 	request.headers().add(
 		web::http::header_names::authorization,
-		uri::encode_data_string(_XPLATSTR("type=master&ver=1.0&sig=") + signature));
+		_XPLATSTR("type=master&ver=1.0&sig=") + uri::encode_data_string(signature));
 	request.headers().add(HEADER_MS_DATE, requestTime);
-	request.headers().add(HEADER_MS_VERSION, _XPLATSTR("2017-02-22"));
+	request.headers().add(HEADER_MS_VERSION, _XPLATSTR("2018-12-31"));
 
 	return request;
 }
@@ -132,8 +136,9 @@ http_request CreateQueryRequest(
 	const string_t& continuation_id)
 {
 	http_request request = CreateRequest(methods::POST, resource_type, resource_id, master_key);
-	request.headers().add(web::http::header_names::content_type, MIME_TYPE_APPLICATION_SQL);
-	request.headers().add(HEADER_MS_DOCUMENTDB_IS_QUERY, true);
+	request.headers().add(web::http::header_names::content_type, MIME_TYPE_APPLICATION_QUERY_JSON);
+	request.headers().add(HEADER_MS_DOCUMENTDB_IS_QUERY, _XPLATSTR("True"));
+	request.headers().add(HEADER_MS_DOCUMENTDB_QUERY_ENABLECROSSPARTITION, _XPLATSTR("True"));
 	request.headers().add(HEADER_MS_MAX_ITEM_COUNT, page_size);
 
 	if (!continuation_id.empty())
@@ -141,7 +146,9 @@ http_request CreateQueryRequest(
 		request.headers().add(HEADER_MS_CONTINUATION, continuation_id);
 	}
 
-	request.set_body(query);
+	value query_body;
+	query_body[QUERY] = value::string(query);
+	request.set_body(query_body);
 
 	return request;
 }

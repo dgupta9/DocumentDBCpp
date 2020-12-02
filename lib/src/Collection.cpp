@@ -219,7 +219,7 @@ string_t Collection::GenerateGuid()
 }
 
 pplx::task<shared_ptr<Document>> Collection::CreateDocumentAsync(
-	const value& document) const
+	const value& document, const string_t& partition_key) const
 {
 	value body = document;
 
@@ -228,18 +228,24 @@ pplx::task<shared_ptr<Document>> Collection::CreateDocumentAsync(
 		body[DOCUMENT_ID] = value::string(GenerateGuid());
 	}
 
-	return this->CreateDocumentAsync(body.serialize());
+	return this->CreateDocumentAsync(body.serialize(), partition_key);
 }
 
 pplx::task<shared_ptr<Document>> Collection::CreateDocumentAsync(
-	const string_t& document) const
+	const string_t& document, const string_t& partition_key) const
 {
 	http_request request = CreateRequest(
 		methods::POST,
 		RESOURCE_PATH_DOCS,
-		this->resource_id(),
+		this->self(),
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + docs_);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + RESOURCE_PATH_DOCS);
+
+	value partitionKey;
+	vector<value> partitionPaths;
+	partitionPaths.push_back(value::string(partition_key));
+	partitionKey = value::array(partitionPaths);
+	request.headers().add(HEADER_MS_DOCUMENTDB_PARTITION_KEY, partitionKey.serialize());
 
 	request.set_body(document);
 
@@ -257,15 +263,15 @@ pplx::task<shared_ptr<Document>> Collection::CreateDocumentAsync(
 }
 
 shared_ptr<Document> Collection::CreateDocument(
-	const value& document) const
+	const value& document, const string_t& partition_key) const
 {
-	return this->CreateDocumentAsync(document).get();
+	return this->CreateDocumentAsync(document, partition_key).get();
 }
 
 shared_ptr<Document> Collection::CreateDocument(
-	const string_t& document) const
+	const string_t& document, const string_t& partition_key) const
 {
-	return this->CreateDocumentAsync(document).get();
+	return this->CreateDocumentAsync(document, partition_key).get();
 }
 
 pplx::task<shared_ptr<Document>> Collection::GetDocumentAsync(
@@ -421,9 +427,9 @@ pplx::task<shared_ptr<DocumentIterator>> Collection::QueryDocumentsAsync(
 		query,
 		page_size,
 		RESOURCE_PATH_DOCS,
-		this->resource_id(),
+		this->self(),
 		this->document_db_configuration()->master_key());
-	const string_t requestUri = this->self() + docs_;
+	const string_t requestUri = this->self() + _XPLATSTR("/") + RESOURCE_PATH_DOCS;
 	request.set_request_uri(requestUri);
 
 	return this->document_db_configuration()->http_client().request(request).then([=](http_response response)
@@ -697,9 +703,9 @@ pplx::task<shared_ptr<StoredProcedure>> Collection::CreateStoredProcedureAsync(
 	http_request request = CreateRequest(
 		methods::POST,
 		RESOURCE_PATH_SPROCS,
-		this->resource_id(),
+		this->self(),
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + sprocs_);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + RESOURCE_PATH_SPROCS);
 
 	value body_;
 	body_[DOCUMENT_ID] = value::string(id);
@@ -727,15 +733,60 @@ shared_ptr<StoredProcedure> Collection::CreateStoredProcedure(
 	return CreateStoredProcedureAsync(id, body).get();
 }
 
+pplx::task<shared_ptr<StoredProcedure>> Collection::CreateBulkInsertStoredProcedureAsync() const
+{
+	return CreateStoredProcedureAsync(STOREDPROC_BULK_INSERT_ID, STOREDPROC_BULK_INSERT);
+}
+
+shared_ptr<StoredProcedure> Collection::CreateBulkInsertStoredProcedure() const
+{
+	return CreateStoredProcedure(STOREDPROC_BULK_INSERT_ID, STOREDPROC_BULK_INSERT);
+}
+
+pplx::task<shared_ptr<StoredProcedure>> Collection::GetBulkInsertStoredProcedureAsync() const
+{
+	return GetStoredProcedureAsync(STOREDPROC_BULK_INSERT_ID);
+}
+
+shared_ptr<StoredProcedure> Collection::GetBulkInsertStoredProcedure() const
+{
+	return GetStoredProcedure(STOREDPROC_BULK_INSERT_ID);
+}
+
+pplx::task<void> Collection::DoBulkInsertStoredProcedureAsync(const utility::string_t& partitionKey, const web::json::value& items) const
+{
+	if (!items.is_array())
+	{
+		value invalidItems;
+		invalidItems[RESPONSE_ERROR_CODE] = value::string(L"400");
+		invalidItems[RESPONSE_ERROR_MESSAGE] = value::string(L"input param items should be json array");
+		ThrowExceptionFromResponse(400, invalidItems);
+	}
+
+	return ExecuteStoredProcedureAsync(STOREDPROC_BULK_INSERT_ID, partitionKey, items);
+}
+
+void Collection::DoBulkInsertStoredProcedure(const utility::string_t& partitionKey, const web::json::value& items) const
+{
+	if (!items.is_array())
+	{
+		value invalidItems;
+		invalidItems[RESPONSE_ERROR_CODE] = value::string(L"400");
+		invalidItems[RESPONSE_ERROR_MESSAGE] = value::string(L"input param items should be json array");
+		ThrowExceptionFromResponse(400, invalidItems);
+	}
+	ExecuteStoredProcedure(STOREDPROC_BULK_INSERT_ID, partitionKey, items);
+}
+
 pplx::task<shared_ptr<StoredProcedure>> Collection::GetStoredProcedureAsync(
 	const string_t& resource_id) const
 {
 	http_request request = CreateRequest(
 		methods::GET,
 		RESOURCE_PATH_SPROCS,
-		resource_id,
+		this->self() + _XPLATSTR("/") + sprocs_ + resource_id,
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + sprocs_ + resource_id);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + sprocs_ + resource_id);
 
 	return this->document_db_configuration()->http_client().request(request).then([=](http_response response)
 	{
@@ -916,14 +967,21 @@ shared_ptr<StoredProcedureIterator> Collection::QueryStoredProcedures(
 
 pplx::task<void> Collection::ExecuteStoredProcedureAsync(
 	const string_t& resource_id,
+	const string_t& partition_key,
 	const value& input) const
 {
 	http_request request = CreateRequest(
 		methods::POST,
 		RESOURCE_PATH_SPROCS,
-		resource_id,
+		this->self() + _XPLATSTR("/") + sprocs_ + resource_id,
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + sprocs_ + resource_id);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + sprocs_ + resource_id);
+
+	value partitionKey;
+	vector<value> partitionPaths;
+	partitionPaths.push_back(value::string(partition_key));
+	partitionKey = value::array(partitionPaths);
+	request.headers().add(HEADER_MS_DOCUMENTDB_PARTITION_KEY, partitionKey.serialize());
 
 	request.set_body(input);
 
@@ -941,9 +999,10 @@ pplx::task<void> Collection::ExecuteStoredProcedureAsync(
 
 void Collection::ExecuteStoredProcedure(
 	const string_t& resource_id,
+	const string_t& partition_key,
 	const value& input) const
 {
-	ExecuteStoredProcedureAsync(resource_id, input).get();
+	ExecuteStoredProcedureAsync(resource_id, partition_key, input).get();
 }
 
 pplx::task<std::shared_ptr<UserDefinedFunction>> Collection::CreateUserDefinedFunctionAsync(

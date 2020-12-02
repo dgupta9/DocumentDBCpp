@@ -57,10 +57,10 @@ namespace documentdb {
 		//collections management
 
 		pplx::task<std::shared_ptr<Collection>> CreateCollectionAsync(
-			const utility::string_t& id) const;
+			const utility::string_t& id, const utility::string_t& partition_key) const;
 
 		std::shared_ptr<Collection> CreateCollection(
-			const utility::string_t& id) const;
+			const utility::string_t& id, const utility::string_t& partition_key) const;
 
 		pplx::task<void> DeleteCollectionAsync(
 			const utility::string_t& resource_id) const;

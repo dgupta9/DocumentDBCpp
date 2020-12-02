@@ -66,7 +66,7 @@ shared_ptr<Collection> Database::CollectionFromJson(
 	string_t id = json_collection->at(DOCUMENT_ID).as_string();
 	string_t rid = json_collection->at(RESPONSE_RESOURCE_RID).as_string();
 	unsigned long ts = json_collection->at(RESPONSE_RESOURCE_TS).as_integer();
-	string_t self = json_collection->at(RESPONSE_RESOURCE_SELF).as_string();
+	string_t self = this->self() + _XPLATSTR("/") + colls_ + id ;
 	string_t etag = json_collection->at(RESPONSE_RESOURCE_ETAG).as_string();
 	string_t docs = json_collection->at(RESPONSE_RESOURCE_DOCS).as_string();
 	string_t sprocs = json_collection->at(RESPONSE_RESOURCE_SPROCS).as_string();
@@ -124,16 +124,22 @@ shared_ptr<User> Database::UserFromJson(
 }
 
 pplx::task<shared_ptr<Collection>> Database::CreateCollectionAsync(
-	const string_t& id) const
+	const string_t& id, const utility::string_t& partition_key) const
 {
 	http_request request = CreateRequest(
 		methods::POST,
 		RESOURCE_PATH_COLLS,
-		this->resource_id(),
+		this->self(),
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + colls_);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + RESOURCE_PATH_COLLS);
 
-	value body;
+	value body, partitionKey;
+	vector<value> partitionPaths;
+	partitionPaths.push_back(value::string(_XPLATSTR("/")+partition_key));
+	partitionKey[PATHS] = value::array(partitionPaths);
+	partitionKey[RESPONSE_INDEX_KIND] = value::string(L"Hash");
+	partitionKey[PARTITION_VERSION] = value::number(2);
+	body[PARTITION_KEY] = partitionKey;
 	body[DOCUMENT_ID] = value::string(id);
 	request.set_body(body);
 
@@ -151,9 +157,9 @@ pplx::task<shared_ptr<Collection>> Database::CreateCollectionAsync(
 }
 
 shared_ptr<Collection> Database::CreateCollection(
-	const string_t& id) const
+	const string_t& id, const utility::string_t& partition_key) const
 {
-	return this->CreateCollectionAsync(id).get();
+	return this->CreateCollectionAsync(id, partition_key).get();
 }
 
 pplx::task<void> Database::DeleteCollectionAsync(
@@ -202,9 +208,9 @@ pplx::task<shared_ptr<Collection>> Database::GetCollectionAsync(
 	http_request request = CreateRequest(
 		methods::GET,
 		RESOURCE_PATH_COLLS,
-		resource_id,
+		this->self() + _XPLATSTR("/") + colls_ + resource_id,
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + colls_ + resource_id);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + colls_ + resource_id);
 
 	return this->document_db_configuration()->http_client().request(request).then([=](http_response response)
 	{
@@ -230,9 +236,9 @@ pplx::task<vector<shared_ptr<Collection>>> Database::ListCollectionsAsync() cons
 	http_request request = CreateRequest(
 		methods::GET,
 		RESOURCE_PATH_COLLS,
-		this->resource_id(),
+		this->self(),
 		this->document_db_configuration()->master_key());
-	request.set_request_uri(this->self() + colls_);
+	request.set_request_uri(this->self() + _XPLATSTR("/") + RESOURCE_PATH_COLLS);
 	return this->document_db_configuration()->http_client().request(request).then([=](http_response response)
 	{
 		value json_response = response.extract_json().get();

@@ -84,16 +84,16 @@ namespace documentdb {
 		virtual ~Collection();
 
 		pplx::task<std::shared_ptr<Document>> CreateDocumentAsync(
-			const web::json::value& document) const;
+			const web::json::value& document, const utility::string_t& partition_key) const;
 
 		std::shared_ptr<Document> CreateDocument(
-			const web::json::value& document) const;
+			const web::json::value& document, const utility::string_t& partition_key) const;
 
 		pplx::task<std::shared_ptr<Document>> CreateDocumentAsync(
-			const utility::string_t& document) const;
+			const utility::string_t& document, const utility::string_t& partition_key) const;
 
 		std::shared_ptr<Document> CreateDocument(
-			const utility::string_t& document) const;
+			const utility::string_t& document, const utility::string_t& partition_key) const;
 
 		pplx::task<std::shared_ptr<Document>> GetDocumentAsync(
 			const utility::string_t& resource_id) const;
@@ -199,6 +199,22 @@ namespace documentdb {
 			const utility::string_t& id,
 			const utility::string_t& body) const;
 
+		pplx::task<std::shared_ptr<StoredProcedure>> CreateBulkInsertStoredProcedureAsync() const;
+
+		std::shared_ptr<StoredProcedure> CreateBulkInsertStoredProcedure() const;
+
+		pplx::task<std::shared_ptr<StoredProcedure>> GetBulkInsertStoredProcedureAsync() const;
+
+		std::shared_ptr<StoredProcedure> GetBulkInsertStoredProcedure() const;
+
+		//pplx::task<void> DoBulkInsertStoredProcedureAsync(std::shared_ptr<StoredProcedure> storedProcedure, const utility::string_t& partitionKey, const utility::string_t& items) const;
+
+		//void DoBulkInsertStoredProcedure(std::shared_ptr<StoredProcedure> storedProcedure, const utility::string_t& partitionKey, const utility::string_t& items) const;
+
+		pplx::task<void> DoBulkInsertStoredProcedureAsync(const utility::string_t& partitionKey, const web::json::value& items) const;
+
+		void DoBulkInsertStoredProcedure(const utility::string_t& partitionKey, const web::json::value& items) const;
+
 		pplx::task<std::shared_ptr<StoredProcedure>> GetStoredProcedureAsync(
 			const utility::string_t& resource_id) const;
 
@@ -241,10 +257,12 @@ namespace documentdb {
 
 		pplx::task<void> ExecuteStoredProcedureAsync(
 			const utility::string_t& resource_id,
+			const utility::string_t& partition_key,
 			const web::json::value& input) const;
 
 		void ExecuteStoredProcedure(
 			const utility::string_t& resource_id,
+			const utility::string_t& partition_key,
 			const web::json::value& input) const;
 
 		// User defined functions management
